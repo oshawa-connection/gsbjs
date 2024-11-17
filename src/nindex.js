@@ -46,7 +46,7 @@ y.forEach((d, i) => {
 
 const writer = new GSBWriter(result);
 
-const header = writer.writeHeaderOnly();
+const header = writer.write();
 
 
 

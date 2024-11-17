@@ -3,6 +3,8 @@
 
 const BYTES_PER_ROW = {
     HEADER: 16, // 8 for the key, 8 for the value,
+    DATA_ROW_WITH_ERROR: 4 * 4, // 4 fields each 4 bytes
+    DATA_ROW_WITHOUT_ERROR: 2 * 4 // 2 fields each 4 bytes
 }
 
 
@@ -11,18 +13,23 @@ export class GSBWriter {
      * 
      * @param {import("./type").gsbFileReadResult} gsbFileReadResult 
      */
-    constructor(gsbFileReadResult) {
+    constructor(gsbFileReadResult, includeErrorFields = true) {
         this.gsbFileReadResult = gsbFileReadResult;
+        this.includeErrorFields = includeErrorFields;
     }
 
-    writeHeaderOnly() {
+    write() {
         
         const headerSize = this.gsbFileReadResult.header.nFields * BYTES_PER_ROW.HEADER
+        const subGridHeadersSize = this.gsbFileReadResult.header.nSubgridFields * BYTES_PER_ROW.HEADER * this.gsbFileReadResult.subgrids.length;
+
+        const totalNumberOfRows = this.gsbFileReadResult.subgrids.map(d => d.count).reduce(function(pv, cv) { return pv + cv; }, 0);
 
 
-        const subGridsSize = this.gsbFileReadResult.header.nSubgridFields * BYTES_PER_ROW.HEADER * this.gsbFileReadResult.subgrids.length;
+        const rowBytes = totalNumberOfRows * (this.includeErrorFields ? BYTES_PER_ROW.DATA_ROW_WITH_ERROR : BYTES_PER_ROW.DATA_ROW_WITHOUT_ERROR);
 
-        const stream = new WriteableStream(headerSize + subGridsSize, true);
+        // +8 bytes for "END"
+        const stream = new WriteableStream(headerSize + subGridHeadersSize + rowBytes + 8, true);
         stream.writeString("NUM_OREC", true);
         stream.writeInt32(this.gsbFileReadResult.header.nFields);
         
@@ -113,14 +120,24 @@ export class GSBWriter {
             stream.writeString("GS_COUNT", true);
             stream.writeInt32(subGrid.count);
 
+
+            
+            subGrid.cvs.forEach((shiftRow, rowCount)=> {
+                stream.writeFloat32(shiftRow.latitudeShift);
+                stream.writeFloat32(shiftRow.longitudeShift);
+                
+                if (true === this.includeErrorFields) {
+                    stream.writeFloat32(shiftRow.latitudeAccuracy);
+                    stream.writeFloat32(shiftRow.longitudeAccuracy);
+                }
+            });
+
         });
 
 
+        stream.writeString("END");
+
         return new Uint8Array(stream.backing);
-    }
-
-    write() {
-
     }
 }
 
@@ -137,17 +154,6 @@ export class WriteableStream {
         this.isLittleEndian = isLittleEndian;
         this.textEncoder = new TextEncoder();
         this.currentBytePosition = 0
-    }
-
-    /**
-     * @param {Uint8Array} array 
-     */
-    writeArrayToDataView(array) {
-        array.forEach(d => {
-            this.dataView.setInt8(this.currentBytePosition, d);
-            this.currentBytePosition +=1;
-        })
-        
     }
 
     /**
@@ -171,8 +177,10 @@ export class WriteableStream {
         str.split("").forEach((char, index) => {
             padded[index] = char.charCodeAt(0);
         });
-
-        this.writeArrayToDataView(padded);
+        padded.forEach(d => {
+            this.dataView.setInt8(this.currentBytePosition, d);
+            this.currentBytePosition +=1;
+        })
     }
 
     /**
@@ -182,6 +190,16 @@ export class WriteableStream {
     writeFloat64(value) {
         this.dataView.setFloat64(this.currentBytePosition, value, this.isLittleEndian);
         this.currentBytePosition += 8;
+    }
+
+
+    /**
+     * 
+     * @param {number} value 
+     */
+    writeFloat32(value) {
+        this.dataView.setFloat32(this.currentBytePosition, value, this.isLittleEndian);
+        this.currentBytePosition += 4;
     }
 
     /**

@@ -42,13 +42,13 @@ export class GSBWriter {
         
         
         stream.writeString("GS_TYPE", true);
-        stream.writeString(this.gsbFileReadResult.header.shiftType);
+        stream.writeString(this.gsbFileReadResult.header.shiftType, true);
 
 
         
         stream.writeString("VERSION", true);
         if (this.gsbFileReadResult.header.version === undefined) {
-            stream.writeString("gsbjs");
+            stream.writeString("OSTN15");
         } else {
             stream.writeString(this.gsbFileReadResult.header.version);
         }
@@ -103,11 +103,12 @@ export class GSBWriter {
             stream.writeFloat64(subGrid.upperLatitude);
 
             stream.writeString("E_LONG", true);
-            stream.writeFloat64(subGrid.upperLongitude);
+            stream.writeFloat64(subGrid.lowerLongitude);
             
 
             stream.writeString("W_LONG", true);
-            stream.writeFloat64(subGrid.lowerLongitude);
+            stream.writeFloat64(subGrid.upperLongitude);
+            
             
 
             stream.writeString("LAT_INC", true);

@@ -1,5 +1,7 @@
 //@ts-check
 /**
+ * Taken and modified from https://github.com/proj4js/proj4js/ with licence https://github.com/proj4js/proj4js/blob/master/LICENSE.md
+ * 
  * Resources for details of NTv2 file formats:
  * - https://web.archive.org/web/20140127204822if_/http://www.mgs.gov.on.ca:80/stdprodconsume/groups/content/@mgs/@iandit/documents/resourcelist/stel02_047447.pdf
  * - http://mimaka.com/help/gs/html/004_NTV2%20Data%20Format.htm
@@ -102,8 +104,18 @@ function readSubgrids(view, header, isLittleEndian, convertToRadians) {
 
     // Proj4 operates on radians whereas the coordinates are in seconds in the grid
     grids.push({
-      ll: [secondsToRadians(subHeader.lowerLongitude), secondsToRadians(subHeader.lowerLatitude)],
-      del: [secondsToRadians(subHeader.longitudeInterval), secondsToRadians(subHeader.latitudeInterval)],
+      name: subHeader.name,
+      parent: subHeader.parent,
+      upperLongitude:subHeader.upperLongitude,
+      lowerLongitude: subHeader.lowerLongitude,
+      upperLatitude:subHeader.upperLatitude,
+      lowerLatitude: subHeader.lowerLatitude,
+      ll: [secondsToRadians(subHeader.upperLongitude), secondsToRadians(subHeader.lowerLatitude)],
+      longitudeInterval: subHeader.longitudeInterval,
+      latitudeInterval: subHeader.latitudeInterval,
+      // del: [secondsToRadians(subHeader.longitudeInterval), secondsToRadians(subHeader.latitudeInterval)],
+      columnCount:lngColumnCount,
+      rowCount:latColumnCount,
       lim: [lngColumnCount, latColumnCount],
       count: subHeader.gridNodeCount,
       cvs: mapNodes(nodes, convertToRadians)
@@ -121,13 +133,8 @@ function mapNodes(nodes, convertToRadians) {
   }
 
   return nodes.map(function (r) {
-    // if (Number.isNaN(r.longitudeShift)) {
-    //   console.warn("longshift was NAN");
-    // } 
-    // if (Number.isNaN(r.latitudeShift)) {
-    //   console.warn("latitudeShift was NAN");
-    // }
-    return [secondsToRadians(r.longitudeShift), secondsToRadians(r.latitudeShift)];
+    return r;
+    // return [secondsToRadians(r.latitudeShift), secondsToRadians(r.longitudeShift), r.latitudeAccuracy, r.longitudeAccuracy];
   });
 }
 
@@ -144,7 +151,14 @@ function readGridHeader(view, offset, isLittleEndian) {
     gridNodeCount: view.getInt32(offset + 168, isLittleEndian)
   };
 }
-
+/**
+ * 
+ * @param {DataView} view 
+ * @param {*} offset 
+ * @param {*} gridHeader 
+ * @param {*} isLittleEndian 
+ * @returns 
+ */
 function readGridNodes(view, offset, gridHeader, isLittleEndian) {
   var nodesOffset = offset + 176;
   var gridRecordLength = 16;
@@ -156,9 +170,6 @@ function readGridNodes(view, offset, gridHeader, isLittleEndian) {
       latitudeAccuracy: view.getFloat32(nodesOffset + i * gridRecordLength + 8, isLittleEndian),
       longitudeAccuracy: view.getFloat32(nodesOffset + i * gridRecordLength + 12, isLittleEndian),
     };
-
-    // console.log(record.latitudeShift);
-
     gridShiftRecords.push(record);
   }
   return gridShiftRecords;

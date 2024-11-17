@@ -1,5 +1,6 @@
 {
   "name": "gsbjs",
+  "private": true,
   "version": "1.0.0",
   "main": "webpack.config.js",
   "type": "module",
@@ -11,6 +12,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "mathjs": "^13.2.2",
     "ol": "^9.2.4"
   },
   "devDependencies": {
